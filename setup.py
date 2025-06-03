@@ -20,7 +20,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': ['move_to = custom_controller.move_to:main',
-                            'take_input = custom_controller.take_input:main'
+                            'take_input = custom_controller.take_input:main',
+                            'rotate_robot = custom_controller.rotate_robot:main'
         ],
     },
 )
