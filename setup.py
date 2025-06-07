@@ -21,7 +21,9 @@ setup(
     entry_points={
         'console_scripts': ['move_to = custom_controller.move_to:main',
                             'take_input = custom_controller.take_input:main',
-                            'rotate_robot = custom_controller.rotate_robot:main'
+                            'rotate_robot = custom_controller.rotate_robot:main',
+                            'move_trajectory = custom_controller.move_trajectory:main',
+                            'max_min_coordinates = custom_controller.max_min_coordinates:main'
         ],
     },
 )
