@@ -7,76 +7,77 @@ from tf_transformations import euler_from_quaternion
 import numpy as np
 from scipy.optimize import fsolve
 import math
+import threading
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 
 class follow8(Node):
     def __init__(self):
         super().__init__('follow8')
 
-        # === Parameters (EDIT THESE AS NEEDED) ===
-        self.r1 = 2   # Circle 1 radius
-        self.r2 = 2   # Circle 2 radius
-        self.d = 3    # Distance between c1 and c2 centers
-        self.r3 = 0.5  # Circle 3 radius (upper tangent)
-        self.r4 = 0.5  # Circle 4 radius (lower tangent)
-
+        # === PARAMETERS ===
+        self.r1 = 2
+        self.r2 = 2
+        self.d = 3
+        self.r3 = 0.5
+        self.r4 = 0.5
         self.MAX_LIN_VEL = 0.18
         self.MAX_ANG_VEL = 2.2
 
-        # Rotation angle (90 degrees clockwise)
-        angle = -np.pi / 2  # negative for clockwise rotation
+        # === PLOTTING SETUP ===
+        self.x_data = []
+        self.y_data = []
+        self.plot_thread = threading.Thread(target=self.live_plot)
+        self.plot_thread.daemon = True
+        self.plot_thread.start()
 
-        # Rotation helper
+        # === ROTATE CIRCLE CONFIGURATION ===
+        angle = -np.pi / 2
         def rotate_point(point, angle_rad=angle):
             c, s = np.cos(angle_rad), np.sin(angle_rad)
-            R = np.array([[c, -s],
-                          [s,  c]])
+            R = np.array([[c, -s], [s, c]])
             return R.dot(point)
 
-        # === Calculate circle centers BEFORE rotation ===
+        # Circle centers before rotation
         c1_raw = np.array([self.r1, 0.0])
         c2_raw = np.array([self.r1 + self.d, 0.0])
-
-        # === Calculate tangent circle centers BEFORE rotation ===
         c3_raw = self.find_tangent_circle(c1_raw, self.r1, c2_raw, self.r2, self.r3, [self.r1 + self.d/2, self.r1])
         c4_raw = self.find_tangent_circle(c1_raw, self.r1, c2_raw, self.r2, self.r4, [self.r1 + self.d/2, -self.r1])
 
-        # === Rotate all centers ===
+        # Apply rotation to all centers
         self.c1 = rotate_point(c1_raw)
         self.c2 = rotate_point(c2_raw)
         self.c3 = rotate_point(c3_raw)
         self.c4 = rotate_point(c4_raw)
 
-        # === Calculate intersection points ON ROTATED centers ===
+        # === INTERSECTION POINTS (ALONG PATH SEQUENCE) ===
         self.intersections = [
-            self.closest_points_on_circle_pair(self.c1, self.r1, self.c3, self.r3)[0],  # c1->c3
-            self.closest_points_on_circle_pair(self.c3, self.r3, self.c2, self.r2)[0],  # c3->c2
-            self.closest_points_on_circle_pair(self.c2, self.r2, self.c4, self.r4)[0],  # c2->c4
-            self.closest_points_on_circle_pair(self.c4, self.r4, self.c1, self.r1)[0],  # c4->c1
+            self.closest_points_on_circle_pair(self.c1, self.r1, self.c3, self.r3)[0],
+            self.closest_points_on_circle_pair(self.c3, self.r3, self.c2, self.r2)[0],
+            self.closest_points_on_circle_pair(self.c2, self.r2, self.c4, self.r4)[0],
+            self.closest_points_on_circle_pair(self.c4, self.r4, self.c1, self.r1)[0],
         ]
         self.print_intersection_points()
 
-        # === Explicit parity: 1 = CCW, -1 = CW ===
-        # c1 (CW), c3 (CCW), c2 (CW), c4 (CCW)
+        # === PATH FOLLOWING SEQUENCE: (center, radius, target intersection point, direction) ===
         self.path_sequence = [
-            (self.c1, self.r1, self.intersections[0], -1),  # c1, CW
-            (self.c3, self.r3, self.intersections[1],  1),  # c3, CCW
-            (self.c2, self.r2, self.intersections[2], -1),  # c2, CW
-            (self.c4, self.r4, self.intersections[3],  1),  # c4, CCW
+            (self.c1, self.r1, self.intersections[0], -1),
+            (self.c3, self.r3, self.intersections[1],  1),
+            (self.c2, self.r2, self.intersections[2], -1),
+            (self.c4, self.r4, self.intersections[3],  1),
         ]
         self.current_segment = 0
-
-        # === Variables for distance monitoring ===
         self.min_distance = float('inf')
         self.distance_below_threshold = False
 
-        # === ROS2 setup ===
+        # === ROS2 SETUP ===
         self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', 10)
         self.odom_sub = self.create_subscription(Odometry, '/odom', self.odom_cb, 10)
         self.timer = self.create_timer(0.05, self.control_loop)
 
         self.current_position = Point()
         self.current_yaw = 0.0
-        self.state = 'moving'  # start moving immediately assuming robot faces +X
+        self.state = 'moving'
         self.lin_vel = 0.0
         self.ang_vel = 0.0
         self.update_velocities()
@@ -107,13 +108,15 @@ class follow8(Node):
 
     def odom_cb(self, msg):
         self.current_position = msg.pose.pose.position
+        self.x_data.append(self.current_position.x)
+        self.y_data.append(self.current_position.y)
         orientation_q = msg.pose.pose.orientation
         orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
         self.current_yaw = euler_from_quaternion(orientation_list)[2]
 
     def update_velocities(self):
         center, radius, _, parity = self.path_sequence[self.current_segment]
-        radius = max(radius, 0.01)  # Prevent division by zero
+        radius = max(radius, 0.01)
         ang_vel = self.MAX_LIN_VEL / radius
         if abs(ang_vel) > self.MAX_ANG_VEL:
             ang_vel = math.copysign(self.MAX_ANG_VEL, ang_vel)
@@ -122,8 +125,6 @@ class follow8(Node):
             lin_vel = self.MAX_LIN_VEL
         self.lin_vel = lin_vel
         self.ang_vel = ang_vel * parity
-
-        # Reset min distance tracking for new segment
         self.min_distance = float('inf')
         self.distance_below_threshold = False
 
@@ -139,29 +140,51 @@ class follow8(Node):
             dy = intersection[1] - self.current_position.y
             distance = math.hypot(dx, dy)
 
-            self.get_logger().info(
-                f"Segment {self.current_segment+1} → Distance to target: {distance:.3f}m "
-                f"(Target: [{intersection[0]:.3f}, {intersection[1]:.3f}], "
-                f"Current: [{self.current_position.x:.3f}, {self.current_position.y:.3f}])"
-            )
-
-            threshold = 0.07  # 10cm threshold to start monitoring closeness
-            increase_margin = (1/100)*0.1  # 2cm margin to detect meaningful increase
+            threshold = 0.07
+            increase_margin = (1 / 100) * 0.1
 
             if distance < threshold:
                 self.distance_below_threshold = True
-
-            # Update min_distance if current distance is smaller
             if distance < self.min_distance:
                 self.min_distance = distance
-
-            # If distance increases meaningfully above min_distance, switch segment
             if self.distance_below_threshold and (distance - self.min_distance) > increase_margin:
-                self.get_logger().info(
-                    f"Distance increased by more than {increase_margin:.2f}m from min distance, switching segment {self.current_segment+1}"
-                )
+                self.get_logger().info(f"Switching to segment {(self.current_segment + 1) % len(self.path_sequence)}")
                 self.current_segment = (self.current_segment + 1) % len(self.path_sequence)
                 self.update_velocities()
+
+    def live_plot(self):
+        plt.ion()
+        fig, ax = plt.subplots()
+        traj_line, = ax.plot([], [], 'b-', label='Robot Trajectory')
+
+        # === Plot static reference circles ===
+        circles = [
+            patches.Circle(self.c1, self.r1, fill=False, color='r', linestyle='--', label='C1'),
+            patches.Circle(self.c2, self.r2, fill=False, color='g', linestyle='--', label='C2'),
+            patches.Circle(self.c3, self.r3, fill=False, color='m', linestyle='--', label='C3'),
+            patches.Circle(self.c4, self.r4, fill=False, color='orange', linestyle='--', label='C4'),
+        ]
+        for circle in circles:
+            ax.add_patch(circle)
+
+        # === Plot intersection points ===
+        for pt in self.intersections:
+            ax.plot(pt[0], pt[1], 'ko', markersize=5, label='Intersection' if pt is self.intersections[0] else "")
+
+        ax.set_xlim(-6, 6)
+        ax.set_ylim(-9, 1)
+        ax.set_title("TurtleBot Figure-8 Path Tracking")
+        ax.set_xlabel("X position (m)")
+        ax.set_ylabel("Y position (m)")
+        ax.grid(True)
+        ax.legend()
+
+        while True:
+            if len(self.x_data) > 1:
+                traj_line.set_data(self.x_data, self.y_data)
+                ax.relim()
+                ax.autoscale_view()
+                plt.pause(0.01)
 
 def main(args=None):
     rclpy.init(args=args)
