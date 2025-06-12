@@ -11,6 +11,10 @@
   <depend>geometry_msgs</depend>
   <depend>nav_msgs</depend>
   <depend>time</depend>
+  <depend>numpy</depend>
+  <depend>math</depend>
+  <depend>scipy</depend>
+  <depend>matplotlib</depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

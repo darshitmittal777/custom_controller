@@ -23,7 +23,9 @@ setup(
                             'take_input = custom_controller.take_input:main',
                             'rotate_robot = custom_controller.rotate_robot:main',
                             'move_trajectory = custom_controller.move_trajectory:main',
-                            'max_min_coordinates = custom_controller.max_min_coordinates:main'
+                            'max_min_coordinates = custom_controller.max_min_coordinates:main',
+                            'follow8 = custom_controller.follow8:main',
+                            'simple9 = custom_controller.simple9:main'
         ],
     },
 )
