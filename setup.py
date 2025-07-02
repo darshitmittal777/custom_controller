@@ -21,11 +21,17 @@ setup(
     entry_points={
         'console_scripts': ['move_to = custom_controller.move_to:main',
                             'take_input = custom_controller.take_input:main',
+                            'take_input_2 = custom_controller.take_input_2:main',
                             'rotate_robot = custom_controller.rotate_robot:main',
                             'move_trajectory = custom_controller.move_trajectory:main',
                             'max_min_coordinates = custom_controller.max_min_coordinates:main',
                             'follow8 = custom_controller.follow8:main',
-                            'simple9 = custom_controller.simple9:main'
+                            'simple9 = custom_controller.simple9:main',
+                            'spiral = custom_controller.spiral:main',
+                            'spiral_real = custom_controller.spiral_real:main',
+                            'pure_pursuit = custom_controller.pure_pursuit:main',
+                            'pure_pursuit_real = custom_controller.pure_pursuit_real:main',
+                            'pure_pursuit_multi = custom_controller.pure_pursuit_multi:main'
         ],
     },
 )

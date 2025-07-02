@@ -55,7 +55,7 @@ class DualRotateRobot(Node):
         self.get_logger().info("Node Started")
 
         # Publishers for two robots
-        self.cmd_vel_pub_1 = self.create_publisher(Twist, "/tb3_1/cmd_vel", 10)
+        self.cmd_vel_pub_1 = self.create_publisher(Twist, "/TB_01/cmd_vel", 10)
         self.cmd_vel_pub_2 = self.create_publisher(Twist, "/cmd_vel", 10)
 
         # Parse direction inputs

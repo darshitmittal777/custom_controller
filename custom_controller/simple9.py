@@ -23,11 +23,6 @@
 #         self.current_state = 'MOVING'
 #         self.current_circle = 1
         
-#         self.theoriticalx = 0
-#         self.theoriticaly = 0
-#         self.theoriticalVx = 1.0
-#         self.theoriticalVy = 0.0
-#         self.time = self.get_clock().now()
 
 #         self.current_pose = None
 #         self.switch_threshold = 0.001
