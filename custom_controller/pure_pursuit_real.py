@@ -5,6 +5,7 @@ from nav_msgs.msg import Odometry
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 import math
 import numpy as np
+import random
 import matplotlib.pyplot as plt
 
 class pure_pursuit_real(Node):
@@ -51,8 +52,9 @@ class pure_pursuit_real(Node):
 
         self.targets = [(0.5,0),(-0.5,0)]
         # self.targets = [(0.5,0)]
-        self.cc = [0.3,0.25]
+        self.cc = [0.3,0.25,0.35,0.22]
         self.current_target = 0
+        self.circle_count = 0
 
         self.current_x = self.r_min
         self.current_y = 0.0
@@ -253,6 +255,8 @@ class pure_pursuit_real(Node):
             self.last_switched = self.count
             old_target = self.targets[min_index]
             new_target = self.targets[second_min_index]
+            self.circle_count = np.random.randint(0, 4)
+
 
             yaw_old = math.atan2(self.theoretical_y - old_target[1], self.theoretical_x - old_target[0])
             yaw_new = math.atan2(self.theoretical_y - new_target[1], self.theoretical_x - new_target[0])
@@ -263,7 +267,7 @@ class pure_pursuit_real(Node):
             self.theoretical_y += v * math.sin(self.theoretical_theta) * self.sim_dt
             self.theoritical_target = second_min_index
         else:
-            kk = self.cc[self.theoritical_target]
+            kk = self.cc[self.circle_count%4]
             A = (2 * kk) / (self.r_min * self.r_max)
             B = self.v_nominal - (kk * (self.r_min + self.r_max)) / (self.r_min * self.r_max)
             w = A + B / r
